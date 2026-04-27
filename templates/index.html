@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Doctor — Medical Image Analysis</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f13;
+      color: #e2e2e8;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .app {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .header-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #2a2050;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .header-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: #9f97e8;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .header-text h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #f0effe;
+    }
+
+    .header-text p {
+      font-size: 13px;
+      color: #888898;
+      margin-top: 3px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 99px;
+      background: #1e1a3a;
+      color: #9f97e8;
+      border: 1px solid #2e2860;
+      margin-top: 5px;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #7f77dd;
+    }
+
+    /* Grid */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Cards */
+    .card {
+      background: #16161e;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 1.25rem;
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #555568;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .label-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 1.5px dashed rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .upload-zone:hover {
+      background: rgba(255,255,255,0.03);
+      border-color: rgba(159,151,232,0.4);
+    }
+
+    .upload-zone.dragover {
+      background: rgba(127,119,221,0.07);
+      border-color: #7f77dd;
+    }
+
+    .upload-zone-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: #1e1e2a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px;
+    }
+
+    .upload-zone-icon svg {
+      width: 18px;
+      height: 18px;
+      stroke: #888898;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .upload-zone p {
+      font-size: 13px;
+      color: #aaaabc;
+    }
+
+    .upload-zone span {
+      font-size: 12px;
+      color: #555568;
+    }
+
+    #image-upload { display: none; }
+
+    #display-image {
+      width: 100%;
+      border-radius: 8px;
+      margin-top: 14px;
+      display: none;
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    /* Suggestions */
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .suggestion-chip {
+      font-size: 12px;
+      color: #888898;
+      background: #1e1e2a;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 99px;
+      padding: 4px 11px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .suggestion-chip:hover {
+      background: #2a2050;
+      color: #c0baf5;
+    }
+
+    /* Textarea */
+    textarea {
+      width: 100%;
+      background: #1e1e2a;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 10px 13px;
+      font-size: 14px;
+      color: #e2e2e8;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+      margin-bottom: 12px;
+      line-height: 1.6;
+      transition: border-color 0.15s;
+    }
+
+    textarea:focus {
+      border-color: rgba(159,151,232,0.5);
+    }
+
+    textarea::placeholder {
+      color: #444458;
+    }
+
+    /* Button */
+    .btn-primary {
+      width: 100%;
+      background: #534ab7;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
+    }
+
+    .btn-primary:hover { background: #3c3489; }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary svg {
+      width: 15px;
+      height: 15px;
+      stroke: white;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Error */
+    .error-card {
+      background: #2a0f0f;
+      border: 1px solid #5a1f1f;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #f09595;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .error-card.shown { display: flex; }
+
+    .error-card svg {
+      width: 14px;
+      height: 14px;
+      stroke: #f09595;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      flex-shrink: 0;
+    }
+
+    /* Response cards */
+    .response-card {
+      background: #16161e;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 1.25rem;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .response-card.shown { display: block; }
+
+    .response-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .model-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .model-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #2a2050;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #9f97e8;
+      border: 1px solid #3e3478;
+    }
+
+    .model-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e2e8;
+    }
+
+    .model-tag {
+      font-size: 11px;
+      color: #555568;
+      margin-top: 1px;
+    }
+
+    .response-body {
+      font-size: 14px;
+      color: #aaaabc;
+      line-height: 1.75;
+    }
+
+    .response-body p { margin-bottom: 0.75em; }
+    .response-body p:last-child { margin-bottom: 0; }
+    .response-body strong { color: #e2e2e8; font-weight: 600; }
+    .response-body ul, .response-body ol { padding-left: 1.2em; margin-bottom: 0.75em; }
+    .response-body li { margin-bottom: 4px; }
+    .response-body code { background: #1e1e2a; border-radius: 4px; padding: 1px 5px; font-size: 13px; color: #c0baf5; }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="header-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+        </svg>
+      </div>
+      <div class="header-text">
+        <h1>AI Doctor — Medical image analysis</h1>
+        <p>Upload a medical image and ask a clinical question</p>
+        <span class="badge"><span class="badge-dot"></span>Powered by Llama-4-Scout-17B</span>
+      </div>
+    </div>
+
+    <!-- Upload + Query -->
+    <div class="grid-2">
+
+      <div class="card">
+        <div class="card-label">
+          <span class="label-dot" style="background:#7f77dd"></span>Upload image
+        </div>
+        <div class="upload-zone" id="upload-zone">
+          <div class="upload-zone-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <p>Click to upload or drag &amp; drop</p>
+          <span>PNG, JPG, DICOM — up to 20MB</span>
+        </div>
+        <input type="file" id="image-upload" accept="image/*" />
+        <img id="display-image" alt="Uploaded medical image" />
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          <span class="label-dot" style="background:#1d9e75"></span>Clinical question
+        </div>
+        <div class="suggestions">
+          <span class="suggestion-chip" onclick="setQuery('What abnormalities are visible?')">What abnormalities are visible?</span>
+          <span class="suggestion-chip" onclick="setQuery('Describe the findings')">Describe the findings</span>
+          <span class="suggestion-chip" onclick="setQuery('Is this normal?')">Is this normal?</span>
+        </div>
+        <textarea id="query-input" rows="5" placeholder="E.g. Are there any signs of pneumonia in this chest X-ray?"></textarea>
+        <button class="btn-primary" id="submit-query">
+          <svg viewBox="0 0 24 24">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Analyze image
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Error -->
+    <div class="error-card" id="error-container">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span id="error-text"></span>
+    </div>
+
+    <!-- Response 1 -->
+    <div class="response-card" id="response-container-llama11b">
+      <div class="response-header">
+        <div class="model-info">
+          <div class="model-avatar">R1</div>
+          <div>
+            <div class="model-name">Response 1</div>
+            <div class="model-tag">Llama-4-Scout-17B</div>
+          </div>
+        </div>
+      </div>
+      <div class="response-body" id="response-body-1"></div>
+    </div>
+
+    <!-- Response 2 -->
+    <div class="response-card" id="response-container-llama90b">
+      <div class="response-header">
+        <div class="model-info">
+          <div class="model-avatar">R2</div>
+          <div>
+            <div class="model-name">Response 2</div>
+            <div class="model-tag">Llama-4-Scout-17B</div>
+          </div>
+        </div>
+      </div>
+      <div class="response-body" id="response-body-2"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const uploadZone = document.getElementById('upload-zone');
+    const imageUpload = document.getElementById('image-upload');
+    const displayImage = document.getElementById('display-image');
+    const queryInput = document.getElementById('query-input');
+    const submitQuery = document.getElementById('submit-query');
+    const responseLlama = document.getElementById('response-container-llama11b');
+    const responseLlava = document.getElementById('response-container-llama90b');
+    const errorContainer = document.getElementById('error-container');
+    const errorText = document.getElementById('error-text');
+
+    function setQuery(text) {
+      queryInput.value = text;
+      queryInput.focus();
+    }
+
+    uploadZone.addEventListener('click', () => imageUpload.click());
+
+    uploadZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) showImage(file);
+    });
+
+    imageUpload.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) showImage(file);
+    });
+
+    function showImage(file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        displayImage.src = e.target.result;
+        displayImage.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    submitQuery.addEventListener('click', async () => {
+      const image = imageUpload.files[0];
+      const query = queryInput.value.trim();
+
+      if (!image || !query) {
+        showError('Please upload an image and enter a question before submitting.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('image', image);
+      formData.append('query', query);
+
+      try {
+        submitQuery.disabled = true;
+        submitQuery.innerHTML = `
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg> Analyzing...`;
+
+        const response = await fetch('/upload_and_query', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) throw new Error(result.detail || 'Something went wrong.');
+
+        errorContainer.classList.remove('shown');
+        document.getElementById('response-body-1').innerHTML = marked.parse(result.llama || '');
+        document.getElementById('response-body-2').innerHTML = marked.parse(result.llava || '');
+        responseLlama.classList.add('shown');
+        responseLlava.classList.add('shown');
+
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        submitQuery.disabled = false;
+        submitQuery.innerHTML = `
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg> Analyze image`;
+      }
+    });
+
+    function showError(msg) {
+      errorText.textContent = msg;
+      errorContainer.classList.add('shown');
+      responseLlama.classList.remove('shown');
+      responseLlava.classList.remove('shown');
+    }
+  </script>
+</body>
+</html>
